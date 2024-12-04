@@ -69,10 +69,9 @@ class MiningGame:
 
     def buy_farm(self, user_id, farm_id):
         try:
-            # Преобразуем farm_id в строку для проверки наличия в словаре
             farm_id_str = str(farm_id)
             
-            if farm_id_str not in self.farms:
+            if farm_id not in self.farms:
                 return "❌ Такой фермы не существует!"
 
             user_data = self.load_user_data(user_id)
@@ -91,19 +90,19 @@ class MiningGame:
                 "rate": farm["rate"],
                 "last_collection": datetime.now().timestamp()
             }
-            
+
             # Сохраняем обновленные данные
             self.save_user_data(user_id, user_data)
-            
+
             # Запускаем майнинг для новой фермы
-            self.start_mining(user_id, int(farm_id))
-            
+            self.start_mining(user_id, farm_id)
+
             return f"✅ Вы успешно купили {farm['name']}!"
-            
+
         except Exception as e:
             print(f"Ошибка при покупке фермы: {e}")
             return "❌ Произошла ошибка при покупке фермы"
-
+            
     def get_balance(self, user_id):
         user_data = self.load_user_data(user_id)
         return f"💰 Ваш баланс: {user_data['coins']} монет"

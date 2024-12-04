@@ -5,6 +5,7 @@ from logging_utils import save_message, save_media
 from mining_game import MiningGame
 import os
 from pyrogram import filters
+import re
 
 # Инициализация бота
 app = Client("my_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
@@ -54,8 +55,10 @@ async def start(client, message):
     save_message(username, "Бот запущен", is_bot=True)
 
 # Обработчик текстовых сообщений
-@app.on_message(filters.text & ~filters.command(["start", "menu", "game", "shop"]))
-async def handle_text(client, message):
+@app.on_message(
+    (filters.text & ~filters.command(["start", "menu", "game", "shop"])) | filters.regex(r"/buy_\d+")
+)
+async def handle_message(client, message):
     user_id = message.from_user.id
     username = message.from_user.username or str(user_id)
     save_message(username, message.text)
@@ -68,14 +71,35 @@ async def handle_text(client, message):
     elif message.text == "⛏ Мои фермы":
         await message.reply_text(game.get_farms_status(user_id))
     elif message.text == "◀️ На главную":
-        main_keyboard = ReplyKeyboardMarkup([
-            ["🎮 Игры", "👤 Профиль"],
-            ["📢 Информация", "⚙️ Настройки"]
-        ], resize_keyboard=True)
+        main_keyboard = ReplyKeyboardMarkup(
+            [
+                ["🎮 Игры", "👤 Профиль"],
+                ["📢 Информация", "⚙️ Настройки"]
+            ],
+            resize_keyboard=True
+        )
         await message.reply_text("Вы вернулись в главное меню", reply_markup=main_keyboard)
     elif message.text == "🎮 Игры":
         game_keyboard = game.get_game_keyboard()
         await message.reply_text("🎮 Выберите действие:", reply_markup=game_keyboard)
+    elif re.match(r"/buy_\d+", message.text):
+        try:
+            command = message.text.strip()
+            print(f"Получена команда: {command}")
+            farm_id = int(command.split('_')[1])
+            print(f"Попытка купить ферму ID: {farm_id} для пользователя: {user_id}")
+            result = game.buy_farm(user_id, farm_id)
+            await message.reply_text(result)
+
+            # Если покупка успешна, показываем обновленный магазин
+            if "успешно" in result.lower():
+                await message.reply_text(game.get_shop_text(user_id))
+        except (ValueError, IndexError) as e:
+            print(f"Ошибка обработки команды: {e}")
+            await message.reply_text("❌ Неверный формат команды!")
+        except Exception as e:
+            print(f"Непредвиденная ошибка: {e}")
+            await message.reply_text("❌ Произошла ошибка при покупке фермы")
 
 # Обработчик фотографий
 @app.on_message(filters.photo)
@@ -175,39 +199,6 @@ def start_mining_processes():
                 continue
             except Exception as e:
                 print(f"Error starting mining for user {user_dir}: {e}")
-
-# Замените существующий обработчик buy на этот:
-@app.on_message(filters.regex(r"/buy_\d+"))
-async def handle_buy_command(client, message):
-    try:
-        command = message.text.strip()  # Получаем текст команды
-        print(f"Получена команда: {command}")  # Добавляем для отладки
-        
-        # Извлекаем ID фермы из команды
-        farm_id = int(command.split('_')[1])
-        user_id = message.from_user.id
-        
-        print(f"Попытка купить ферму ID: {farm_id} для пользователя: {user_id}")  # Отладка
-        
-        # Пытаемся купить ферму
-        result = game.buy_farm(user_id, farm_id)
-        await message.reply_text(result)
-        
-        # Если покупка успешна, показываем обновленный магазин
-        if "успешно" in result.lower():
-            await message.reply_text(game.get_shop_text(user_id))
-            
-    except (ValueError, IndexError) as e:
-        print(f"Ошибка обработки команды: {e}")  # Отладка
-        await message.reply_text("❌ Неверный формат команды!")
-    except Exception as e:
-        print(f"Непредвиденная ошибка: {e}")  # Отладка
-        await message.reply_text("❌ Произошла ошибка при покупке фермы")
-
-# Также можно добавить альтернативный обработчик с использованием Command вместо regex
-@app.on_message(filters.command(["buy"]) & filters.regex(r"_\d+"))
-async def handle_buy_command_alt(client, message):
-    await handle_buy_command(client, message)
 
 # Запуск бота
 if __name__ == "__main__":
