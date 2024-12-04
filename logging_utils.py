@@ -1,6 +1,5 @@
 import os
 from datetime import datetime
-from PIL import Image  # Pillow library for image processing
 
 def create_user_directory(username):
     user_dir = os.path.join('Users', username)
@@ -33,14 +32,3 @@ def save_media(username, media, media_type):
     
     with open(media_path, 'wb') as f:
         f.write(media)  # Assuming media is in bytes
-
-def save_sticker_as_image(username, sticker, format='png'):
-    sticker_image = Image.open(sticker)
-    user_dir = create_user_directory(username)
-    timestamp = datetime.now().strftime("%d.%m.%y %H-%M-%S")
-    image_path = os.path.join(user_dir, f"{timestamp}.{format}")
-    count = 1
-    while os.path.exists(image_path):
-        image_path = os.path.join(user_dir, f"{timestamp} ({count}).{format}")
-        count += 1
-    sticker_image.save(image_path, format.upper())
