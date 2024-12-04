@@ -30,7 +30,11 @@ class MiningGame:
 
     def load_user_data(self, user_id):
         path = self.get_user_data_path(user_id)
-        default_data = {"coins": 100, "farms": {}}
+        default_data = {
+            "coins": 100, 
+            "farms": {},
+            "username": str(user_id)  # Добавляем поле для хранения ника
+        }
         
         if os.path.exists(path):
             try:
@@ -48,6 +52,7 @@ class MiningGame:
             # Создаем копию данных с отсортированными фермами
             save_data = {
                 "coins": data.get("coins", 0),
+                "username": data.get("username", str(user_id)),  # Добавляем сохранение username
                 "farms": {}
             }
             # Сортируем и копируем данные ферм
@@ -71,7 +76,7 @@ class MiningGame:
         keyboard = types.ReplyKeyboardMarkup(
             [
                 ["🏪 Магазин", "💰 Баланс"],
-                ["⛏ Мои фермы"],
+                ["⛏ Мои фермы", "🏆 Топ игроков"],
                 ["◀️ На главную"]
             ],
             resize_keyboard=True
@@ -196,3 +201,41 @@ class MiningGame:
         if "farms" not in data or not isinstance(data["farms"], dict):
             return False
         return True
+
+    def get_top_players(self):
+        players_data = []
+        try:
+            if os.path.exists("Users"):
+                for user_dir in os.listdir("Users"):
+                    try:
+                        user_path = os.path.join("Users", user_dir, "data.json")
+                        if os.path.exists(user_path):
+                            with open(user_path, 'r', encoding='utf-8') as f:
+                                user_data = json.load(f)
+                                total_rate = sum(farm["rate"] for farm in user_data.get("farms", {}).values())
+                                players_data.append({
+                                    "username": user_data.get("username", user_dir),
+                                    "coins": user_data.get("coins", 0),
+                                    "total_rate": total_rate,
+                                    "farms_count": len(user_data.get("farms", {}))
+                                })
+                    except Exception as e:
+                        print(f"Error loading data for user {user_dir}: {e}")
+                        continue
+            
+            # Сортировка по монетам
+            players_data.sort(key=lambda x: x["coins"], reverse=True)
+            
+            # Формируем текст топа
+            text = "🏆 Топ игроков:\n\n"
+            for i, player in enumerate(players_data[:10], 1):
+                text += f"{i}. 👤 {player['username']}\n"
+                text += f"💰 Монет: {player['coins']}\n"
+                text += f"⚡️ Общая производительность: {player['total_rate']} монет/сек\n"
+                text += f"🏭 Количество ферм: {player['farms_count']}\n"
+                text += f"{'='*30}\n"
+            
+            return text if players_data else "Пока нет игроков в топе 😢"
+        except Exception as e:
+            print(f"Error getting top players: {e}")
+            return "Ошибка при получении топа игроков"

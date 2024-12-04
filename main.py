@@ -37,7 +37,6 @@ async def menu(client, message):
         reply_markup=keyboard
     )
 
-# Обработчик команды старт
 @app.on_message(filters.command("start"))
 async def start(client, message):
     main_keyboard = ReplyKeyboardMarkup([
@@ -46,7 +45,12 @@ async def start(client, message):
     ], resize_keyboard=True)
     
     user_id = message.from_user.id
-    username = message.from_user.username or str(user_id)
+    username = message.from_user.username or message.from_user.first_name or str(user_id)
+    
+    # Загружаем и обновляем данные пользователя
+    user_data = game.load_user_data(user_id)
+    user_data["username"] = username
+    game.save_user_data(user_id, user_data)
     
     await message.reply(
         "Добро пожаловать! Выберите действие из меню:",
@@ -54,12 +58,9 @@ async def start(client, message):
     )
     save_message(username, "Бот запущен", is_bot=True)
 
-# Обработчик текстовых сообщений
+
 @app.on_message(
-    (filters.text & ~filters.command(["start", "menu", "game", "shop"])) | filters.regex(r"/buy_\d+")
-)
-@app.on_message(
-    (filters.text & ~filters.command(["start", "menu", "game", "shop"])) | filters.regex(r"/buy_\d+")
+    (filters.text & ~filters.command(["menu", "game", "shop"])) | filters.regex(r"/buy_\d+")
 )
 async def handle_message(client, message):
     user_id = message.from_user.id
@@ -73,6 +74,8 @@ async def handle_message(client, message):
         await message.reply_text(game.get_balance(user_id))
     elif message.text == "⛏ Мои фермы":
         await message.reply_text(game.get_farms_status(user_id))
+    elif message.text == "🏆 Топ игроков":
+        await message.reply_text(game.get_top_players())
     elif message.text == "◀️ На главную":
         main_keyboard = ReplyKeyboardMarkup(
             [
