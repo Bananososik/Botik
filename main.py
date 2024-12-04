@@ -142,5 +142,76 @@ async def handle_sticker(client, message):
         if 'temp_file' in locals() and os.path.exists(temp_file):
             os.remove(temp_file)
 
+from pyrogram import Client, filters
+from mining_game import MiningGame
+
+# Инициализация игры
+game = MiningGame()
+
+# Обработчик команды для перехода в игровой режим
+@app.on_message(filters.command("game"))
+async def game_menu(client, message):
+    keyboard = game.get_game_keyboard()
+    await message.reply_text("🎮 Добро пожаловать в игровое меню!", reply_markup=keyboard)
+
+# Обработчик для покупки ферм
+@app.on_message(filters.command("shop"))
+async def shop_command(client, message):
+    args = message.text.split()
+    if len(args) == 1:
+        # Показываем список доступных ферм
+        await message.reply_text(game.get_shop_text(message.from_user.id))
+    elif len(args) == 2:
+        try:
+            farm_id = int(args[1])
+            result = game.buy_farm(message.from_user.id, farm_id)
+            await message.reply_text(result)
+        except ValueError:
+            await message.reply_text("❌ Неверный формат команды! Используйте /shop <номер фермы>")
+
+# Обработчик текстовых сообщений для кнопок
+@app.on_message(filters.text & filters.private)
+async def handle_text(client, message):
+    if message.text == "🏪 Магазин":
+        await message.reply_text(game.get_shop_text(message.from_user.id))
+    elif message.text == "💰 Баланс":
+        await message.reply_text(game.get_balance(message.from_user.id))
+    elif message.text == "⛏ Мои фермы":
+        await message.reply_text(game.get_farms_status(message.from_user.id))
+    # Продолжение предыдущего кода...
+    elif message.text == "◀️ На главную":
+        # Создаем основную клавиатуру
+        main_keyboard = types.ReplyKeyboardMarkup(
+            [
+                ["🎮 Игры", "👤 Профиль"],  # Первый ряд кнопок
+                ["📢 Информация", "⚙️ Настройки"],  # Второй ряд кнопок
+            ],
+            resize_keyboard=True
+        )
+        await message.reply_text("Вы вернулись в главное меню", reply_markup=main_keyboard)
+
+# Добавим обработчик для кнопки перехода в игры
+@app.on_message(filters.regex("^🎮 Игры$"))
+async def games_menu(client, message):
+    game_keyboard = game.get_game_keyboard()
+    await message.reply_text("🎮 Выберите действие:", reply_markup=game_keyboard)
+
+# Добавим обработчик для запуска всех майнинг процессов при старте бота
+@app.on_start()
+async def start_mining_processes():
+    # Проходим по всем файлам в директории Users
+    if os.path.exists("Users"):
+        for user_dir in os.listdir("Users"):
+            try:
+                user_id = int(user_dir)
+                user_data = game.load_user_data(user_id)
+                # Запускаем майнинг для каждой фермы пользователя
+                for farm_id in user_data.get("farms", {}):
+                    game.start_mining(user_id, int(farm_id))
+            except ValueError:
+                continue
+            except Exception as e:
+                print(f"Error starting mining for user {user_dir}: {e}")    
+
 print("Bot started!")
 app.run()
