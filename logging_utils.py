@@ -25,7 +25,33 @@ def save_message(username, message, is_bot=False):
     except Exception as e:
         print(f"Ошибка при сохранении сообщения: {str(e)}")
 
-def save_media(username, media_data, media_type):
+def save_media(username, media_data, media_type, file_ext=None):
+    """Сохраняет медиафайл"""
+    try:
+        # Создаем директории
+        user_dir = create_user_directory(username)
+        media_dir = os.path.join(user_dir, 'media')
+        if not os.path.exists(media_dir):
+            os.makedirs(media_dir)
+
+        # Генерируем имя файла
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # Используем переданное расширение или значение по умолчанию
+        extension = file_ext if file_ext else ('.jpg' if media_type == 'photo' else '.webp')
+        filename = f"{media_type}_{timestamp}{extension}"
+        
+        # Сохраняем файл
+        file_path = os.path.join(media_dir, filename)
+        with open(file_path, 'wb') as f:
+            f.write(media_data)
+        
+        print(f"Медиафайл сохранен: {file_path}")
+        return file_path
+        
+    except Exception as e:
+        print(f"Ошибка при сохранении медиафайла: {str(e)}")
+        print(f"Тип ошибки: {type(e)}")
+        raise
     """Сохраняет медиафайл"""
     try:
         # Создаем директории

@@ -36,30 +36,22 @@ async def handle_photo(client, message):
         user_id = message.from_user.id
         username = message.from_user.username or str(user_id)
         
-        # Создаем временную директорию, если её нет
         if not os.path.exists("temp"):
             os.makedirs("temp")
         
-        # Получаем самую большую версию фото
-        photo = message.photo[-1]
-        
-        # Формируем путь для временного файла
+        # Changed this part - directly use message.photo
+        photo = message.photo
         temp_file = f"temp/{photo.file_id}.jpg"
         
-        # Скачиваем фото
+        # Download using file_id
         await message.download(file_name=temp_file)
         
-        # Проверяем, что файл существует
         if os.path.exists(temp_file):
-            # Читаем файл и сохраняем его
             with open(temp_file, "rb") as f:
                 file_data = f.read()
                 save_media(username, file_data, "photo")
             
-            # Удаляем временный файл
             os.remove(temp_file)
-            
-            # Сохраняем сообщение в лог
             save_message(username, "📸 Фотография получена и сохранена")
             print(f"Фото успешно сохранено для пользователя {username}")
         
@@ -73,33 +65,39 @@ async def handle_sticker(client, message):
         user_id = message.from_user.id
         username = message.from_user.username or str(user_id)
         
-        # Создаем временную директорию, если её нет
         if not os.path.exists("temp"):
             os.makedirs("temp")
         
-        # Формируем путь для временного файла
-        temp_file = f"temp/{message.sticker.file_id}.webp"
+        # Получаем размер файла напрямую из сообщения (в байтах)
+        file_size = message.sticker.file_size
+        file_size_kb = file_size / 1024
+        
+        # Определяем расширение на основе размера в килобайтах
+        file_ext = ".webm" if file_size_kb > 100 else ".webp"
+        
+        print(f"Размер стикера: {file_size_kb:.2f} KB")
+        print(f"Выбранное расширение: {file_ext}")
+        
+        temp_file = f"temp/{message.sticker.file_id}{file_ext}"
         
         # Скачиваем стикер
         await message.download(file_name=temp_file)
         
-        # Проверяем, что файл существует
         if os.path.exists(temp_file):
-            # Читаем файл и сохраняем его
             with open(temp_file, "rb") as f:
                 file_data = f.read()
-                save_media(username, file_data, "sticker")
+                # Передаем расширение в функцию save_media
+                save_media(username, file_data, "sticker", file_ext)
             
-            # Удаляем временный файл
             os.remove(temp_file)
-            
-            # Сохраняем сообщение в лог
-            save_message(username, "🎯 Стикер получен и сохранен")
+            save_message(username, f"🎯 Стикер получен и сохранен (размер: {file_size_kb:.2f} KB)")
             print(f"Стикер успешно сохранен для пользователя {username}")
         
     except Exception as e:
         print(f"Ошибка при обработке стикера: {str(e)}")
         print(f"Тип ошибки: {type(e)}")
+        if 'temp_file' in locals() and os.path.exists(temp_file):
+            os.remove(temp_file)
 
 print("Bot started!")
 app.run()
