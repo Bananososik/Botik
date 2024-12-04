@@ -2,11 +2,54 @@
 from pyrogram import Client, filters
 from bot_token import bot_token, api_id, api_hash
 from logging_utils import save_message, save_media
+from pyrogram.types import ReplyKeyboardMarkup, KeyboardButton
 import os
 
 app = Client("my_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
 
 user_states = {}
+
+@app.on_message(filters.command("menu"))
+async def menu(client, message):
+    keyboard = ReplyKeyboardMarkup([
+        # Первый ряд
+        [
+            KeyboardButton("📸 Отправить фото"),
+            KeyboardButton("🎯 Отправить стикер")
+        ],
+        # Второй ряд
+        [
+            KeyboardButton("❓ Помощь"),
+            KeyboardButton("ℹ️ Информация")
+        ],
+        # Третий ряд
+        [KeyboardButton("🔄 Сбросить")]
+    ], 
+    resize_keyboard=True,
+    one_time_keyboard=False)
+    
+    await message.reply(
+        "Выберите действие из меню:",
+        reply_markup=keyboard
+    )
+
+# Исправленный обработчик для кнопок меню
+@app.on_message(filters.text & ~filters.command(["start", "menu"]))  # указываем список команд для исключения
+async def handle_menu_buttons(client, message):
+    if message.text == "📸 Отправить фото":
+        await message.reply("Отправьте фотографию")
+    
+    elif message.text == "🎯 Отправить стикер":
+        await message.reply("Отправьте стикер")
+    
+    elif message.text == "❓ Помощь":
+        await message.reply("Здесь будет текст помощи")
+    
+    elif message.text == "ℹ️ Информация":
+        await message.reply("Здесь будет информация о боте")
+    
+    elif message.text == "🔄 Сбросить":
+        await message.reply("Сброс выполнен")
 
 @app.on_message(filters.command("start"))
 async def start(client, message):
