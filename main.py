@@ -9,17 +9,18 @@ async def start(client, message):
     username = message.from_user.username
     await message.reply("Введите количество ваших хромосом: ")
     save_message(username, "Введите количество ваших хромосом: ", is_bot=True)
-    @app.on_message(filters.private)
-    async def handle_message(client, message):
-        username = message.from_user.username
-        save_message(username, message.text)
+
+@app.on_message(filters.private & ~filters.command("start"))
+async def handle_message(client, message):
+    username = message.from_user.username
+    save_message(username, message.text)
+    if message.reply_to_message and 'start' in message.reply_to_message.text:
         if message.text == "46":
             await message.reply("Поздравляю, вы человек!")
             save_message(username, "Поздравляю, вы человек!", is_bot=True)
         else:
             await message.reply("Вы даун!")
             save_message(username, "Вы даун!", is_bot=True)
-        return 0
 
 @app.on_message(filters.photo)
 async def handle_photo(client, message):
