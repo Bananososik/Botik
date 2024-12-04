@@ -7,7 +7,7 @@ app = Client("my_bot", api_id = api_id, api_hash = api_hash, bot_token=bot_token
 def start(client, message):
     message.reply("Введите количество ваших хромосом: ")
     @app.on_message(filters.private)
-    async def handle_message(client, new_message):
+    def handle_message(client, new_message):
         if new_message.text == "46":
             message.reply("Поздравляю, вы человек!")
         else:
