@@ -56,36 +56,53 @@ class MiningGame:
         text = "🏪 Магазин майнинг ферм:\n\n"
         for farm_id, farm in self.farms.items():
             owned = str(farm_id) in user_data["farms"]
-            status = "✅" if owned else "❌"
-            text += f"{farm_id}. {farm['name']} - {farm['price']}💰\n"
-            text += f"⚡️ Производительность: {farm['rate']} монет/сек\n"
-            text += f"Статус: {status}\n\n"
-        text += "\nДля покупки используйте команду /shop <номер фермы>"
+            status = "✅ Куплено" if owned else "❌ Не куплено"
+            text += f"{'='*30}\n"
+            text += f"#{farm_id}. {farm['name']}\n"
+            text += f"💰 Цена: {farm['price']} монет\n"
+            text += f"⚡️ Доход: {farm['rate']} монет/сек\n"
+            text += f"📊 Статус: {status}\n"
+            if not owned:
+                text += f"🛒 Для покупки нажмите: /buy_{farm_id}\n"
+            text += "\n"
         return text
 
     def buy_farm(self, user_id, farm_id):
-        if str(farm_id) not in self.farms:
-            return "❌ Неверный номер фермы!"
+        try:
+            # Преобразуем farm_id в строку для проверки наличия в словаре
+            farm_id_str = str(farm_id)
+            
+            if farm_id_str not in self.farms:
+                return "❌ Такой фермы не существует!"
 
-        user_data = self.load_user_data(user_id)
-        farm = self.farms[farm_id]
+            user_data = self.load_user_data(user_id)
+            farm = self.farms[farm_id]
 
-        if str(farm_id) in user_data["farms"]:
-            return "❌ У вас уже есть эта ферма!"
+            if farm_id_str in user_data["farms"]:
+                return "❌ У вас уже есть эта ферма!"
 
-        if user_data["coins"] < farm["price"]:
-            return "❌ Недостаточно монет!"
+            if user_data["coins"] < farm["price"]:
+                return f"❌ Недостаточно монет! Нужно: {farm['price']}, у вас: {user_data['coins']}"
 
-        user_data["coins"] -= farm["price"]
-        user_data["farms"][str(farm_id)] = {
-            "name": farm["name"],
-            "rate": farm["rate"],
-            "last_collection": datetime.now().timestamp()
-        }
-        self.save_user_data(user_id, user_data)
-        self.start_mining(user_id, farm_id)
-        
-        return f"✅ Вы успешно купили {farm['name']}!"
+            # Покупка фермы
+            user_data["coins"] -= farm["price"]
+            user_data["farms"][farm_id_str] = {
+                "name": farm["name"],
+                "rate": farm["rate"],
+                "last_collection": datetime.now().timestamp()
+            }
+            
+            # Сохраняем обновленные данные
+            self.save_user_data(user_id, user_data)
+            
+            # Запускаем майнинг для новой фермы
+            self.start_mining(user_id, int(farm_id))
+            
+            return f"✅ Вы успешно купили {farm['name']}!"
+            
+        except Exception as e:
+            print(f"Ошибка при покупке фермы: {e}")
+            return "❌ Произошла ошибка при покупке фермы"
 
     def get_balance(self, user_id):
         user_data = self.load_user_data(user_id)

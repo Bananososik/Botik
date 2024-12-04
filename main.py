@@ -1,78 +1,83 @@
-# main.py
 from pyrogram import Client, filters
+from pyrogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from bot_token import bot_token, api_id, api_hash
 from logging_utils import save_message, save_media
-from pyrogram.types import ReplyKeyboardMarkup, KeyboardButton
+from mining_game import MiningGame
 import os
+from pyrogram import filters
 
+# Инициализация бота
 app = Client("my_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
 
+# Инициализация игры
+game = MiningGame()
+
+# Словарь для хранения состояний пользователей
 user_states = {}
 
+# Главное меню
 @app.on_message(filters.command("menu"))
 async def menu(client, message):
     keyboard = ReplyKeyboardMarkup([
-        # Первый ряд
         [
             KeyboardButton("📸 Отправить фото"),
             KeyboardButton("🎯 Отправить стикер")
         ],
-        # Второй ряд
         [
             KeyboardButton("❓ Помощь"),
             KeyboardButton("ℹ️ Информация")
         ],
-        # Третий ряд
         [KeyboardButton("🔄 Сбросить")]
     ], 
-    resize_keyboard=True,
-    one_time_keyboard=False)
+    resize_keyboard=True)
     
     await message.reply(
         "Выберите действие из меню:",
         reply_markup=keyboard
     )
 
-# Исправленный обработчик для кнопок меню
-@app.on_message(filters.text & ~filters.command(["start", "menu"]))  # указываем список команд для исключения
-async def handle_menu_buttons(client, message):
-    if message.text == "📸 Отправить фото":
-        await message.reply("Отправьте фотографию")
-    
-    elif message.text == "🎯 Отправить стикер":
-        await message.reply("Отправьте стикер")
-    
-    elif message.text == "❓ Помощь":
-        await message.reply("Здесь будет текст помощи")
-    
-    elif message.text == "ℹ️ Информация":
-        await message.reply("Здесь будет информация о боте")
-    
-    elif message.text == "🔄 Сбросить":
-        await message.reply("Сброс выполнен")
-
+# Обработчик команды старт
 @app.on_message(filters.command("start"))
 async def start(client, message):
+    main_keyboard = ReplyKeyboardMarkup([
+        ["🎮 Игры", "👤 Профиль"],
+        ["📢 Информация", "⚙️ Настройки"]
+    ], resize_keyboard=True)
+    
     user_id = message.from_user.id
     username = message.from_user.username or str(user_id)
-    user_states[user_id] = 'waiting_for_chromosomes'
-    await message.reply("Введите количество ваших хромосом: ")
-    save_message(username, "Введите количество ваших хромосом: ", is_bot=True)
+    
+    await message.reply(
+        "Добро пожаловать! Выберите действие из меню:",
+        reply_markup=main_keyboard
+    )
+    save_message(username, "Бот запущен", is_bot=True)
 
-@app.on_message(filters.text & ~filters.command("start"))
-async def handle_message(client, message):
+# Обработчик текстовых сообщений
+@app.on_message(filters.text & ~filters.command(["start", "menu", "game", "shop"]))
+async def handle_text(client, message):
     user_id = message.from_user.id
     username = message.from_user.username or str(user_id)
     save_message(username, message.text)
-    if user_states.get(user_id) == 'waiting_for_chromosomes':
-        if message.text == "46":
-            await message.reply("Поздравляю, вы человек!")
-            save_message(username, "Поздравляю, вы человек!", is_bot=True)
-        else:
-            await message.reply("Вы даун!")
-            save_message(username, "Вы даун!", is_bot=True)
-        user_states[user_id] = None
 
+    # Обработка игровых кнопок
+    if message.text == "🏪 Магазин":
+        await message.reply_text(game.get_shop_text(user_id))
+    elif message.text == "💰 Баланс":
+        await message.reply_text(game.get_balance(user_id))
+    elif message.text == "⛏ Мои фермы":
+        await message.reply_text(game.get_farms_status(user_id))
+    elif message.text == "◀️ На главную":
+        main_keyboard = ReplyKeyboardMarkup([
+            ["🎮 Игры", "👤 Профиль"],
+            ["📢 Информация", "⚙️ Настройки"]
+        ], resize_keyboard=True)
+        await message.reply_text("Вы вернулись в главное меню", reply_markup=main_keyboard)
+    elif message.text == "🎮 Игры":
+        game_keyboard = game.get_game_keyboard()
+        await message.reply_text("🎮 Выберите действие:", reply_markup=game_keyboard)
+
+# Обработчик фотографий
 @app.on_message(filters.photo)
 async def handle_photo(client, message):
     try:
@@ -82,11 +87,9 @@ async def handle_photo(client, message):
         if not os.path.exists("temp"):
             os.makedirs("temp")
         
-        # Changed this part - directly use message.photo
         photo = message.photo
         temp_file = f"temp/{photo.file_id}.jpg"
         
-        # Download using file_id
         await message.download(file_name=temp_file)
         
         if os.path.exists(temp_file):
@@ -96,12 +99,14 @@ async def handle_photo(client, message):
             
             os.remove(temp_file)
             save_message(username, "📸 Фотография получена и сохранена")
+            await message.reply("Фото успешно сохранено!")
             print(f"Фото успешно сохранено для пользователя {username}")
         
     except Exception as e:
         print(f"Ошибка при обработке фото: {str(e)}")
         print(f"Тип ошибки: {type(e)}")
 
+# Обработчик стикеров
 @app.on_message(filters.sticker)
 async def handle_sticker(client, message):
     try:
@@ -111,11 +116,8 @@ async def handle_sticker(client, message):
         if not os.path.exists("temp"):
             os.makedirs("temp")
         
-        # Получаем размер файла напрямую из сообщения (в байтах)
         file_size = message.sticker.file_size
         file_size_kb = file_size / 1024
-        
-        # Определяем расширение на основе размера в килобайтах
         file_ext = ".webm" if file_size_kb > 100 else ".webp"
         
         print(f"Размер стикера: {file_size_kb:.2f} KB")
@@ -123,16 +125,15 @@ async def handle_sticker(client, message):
         
         temp_file = f"temp/{message.sticker.file_id}{file_ext}"
         
-        # Скачиваем стикер
         await message.download(file_name=temp_file)
         
         if os.path.exists(temp_file):
             with open(temp_file, "rb") as f:
                 file_data = f.read()
-                # Передаем расширение в функцию save_media
                 save_media(username, file_data, "sticker", file_ext)
             
             os.remove(temp_file)
+            await message.reply(f"🎯 Стикер получен и сохранен (размер: {file_size_kb:.2f} KB)")
             save_message(username, f"🎯 Стикер получен и сохранен (размер: {file_size_kb:.2f} KB)")
             print(f"Стикер успешно сохранен для пользователя {username}")
         
@@ -142,24 +143,17 @@ async def handle_sticker(client, message):
         if 'temp_file' in locals() and os.path.exists(temp_file):
             os.remove(temp_file)
 
-from pyrogram import Client, filters
-from mining_game import MiningGame
-
-# Инициализация игры
-game = MiningGame()
-
-# Обработчик команды для перехода в игровой режим
+# Обработчик команды для игрового режима
 @app.on_message(filters.command("game"))
 async def game_menu(client, message):
     keyboard = game.get_game_keyboard()
     await message.reply_text("🎮 Добро пожаловать в игровое меню!", reply_markup=keyboard)
 
-# Обработчик для покупки ферм
+# Обработчик для магазина
 @app.on_message(filters.command("shop"))
 async def shop_command(client, message):
     args = message.text.split()
     if len(args) == 1:
-        # Показываем список доступных ферм
         await message.reply_text(game.get_shop_text(message.from_user.id))
     elif len(args) == 2:
         try:
@@ -169,49 +163,54 @@ async def shop_command(client, message):
         except ValueError:
             await message.reply_text("❌ Неверный формат команды! Используйте /shop <номер фермы>")
 
-# Обработчик текстовых сообщений для кнопок
-@app.on_message(filters.text & filters.private)
-async def handle_text(client, message):
-    if message.text == "🏪 Магазин":
-        await message.reply_text(game.get_shop_text(message.from_user.id))
-    elif message.text == "💰 Баланс":
-        await message.reply_text(game.get_balance(message.from_user.id))
-    elif message.text == "⛏ Мои фермы":
-        await message.reply_text(game.get_farms_status(message.from_user.id))
-    # Продолжение предыдущего кода...
-    elif message.text == "◀️ На главную":
-        # Создаем основную клавиатуру
-        main_keyboard = types.ReplyKeyboardMarkup(
-            [
-                ["🎮 Игры", "👤 Профиль"],  # Первый ряд кнопок
-                ["📢 Информация", "⚙️ Настройки"],  # Второй ряд кнопок
-            ],
-            resize_keyboard=True
-        )
-        await message.reply_text("Вы вернулись в главное меню", reply_markup=main_keyboard)
-
-# Добавим обработчик для кнопки перехода в игры
-@app.on_message(filters.regex("^🎮 Игры$"))
-async def games_menu(client, message):
-    game_keyboard = game.get_game_keyboard()
-    await message.reply_text("🎮 Выберите действие:", reply_markup=game_keyboard)
-
-# Добавим обработчик для запуска всех майнинг процессов при старте бота
-@app.on_start()
-async def start_mining_processes():
-    # Проходим по всем файлам в директории Users
+def start_mining_processes():
     if os.path.exists("Users"):
         for user_dir in os.listdir("Users"):
             try:
                 user_id = int(user_dir)
                 user_data = game.load_user_data(user_id)
-                # Запускаем майнинг для каждой фермы пользователя
                 for farm_id in user_data.get("farms", {}):
                     game.start_mining(user_id, int(farm_id))
             except ValueError:
                 continue
             except Exception as e:
-                print(f"Error starting mining for user {user_dir}: {e}")    
+                print(f"Error starting mining for user {user_dir}: {e}")
 
-print("Bot started!")
-app.run()
+# Замените существующий обработчик buy на этот:
+@app.on_message(filters.regex(r"/buy_\d+"))
+async def handle_buy_command(client, message):
+    try:
+        command = message.text.strip()  # Получаем текст команды
+        print(f"Получена команда: {command}")  # Добавляем для отладки
+        
+        # Извлекаем ID фермы из команды
+        farm_id = int(command.split('_')[1])
+        user_id = message.from_user.id
+        
+        print(f"Попытка купить ферму ID: {farm_id} для пользователя: {user_id}")  # Отладка
+        
+        # Пытаемся купить ферму
+        result = game.buy_farm(user_id, farm_id)
+        await message.reply_text(result)
+        
+        # Если покупка успешна, показываем обновленный магазин
+        if "успешно" in result.lower():
+            await message.reply_text(game.get_shop_text(user_id))
+            
+    except (ValueError, IndexError) as e:
+        print(f"Ошибка обработки команды: {e}")  # Отладка
+        await message.reply_text("❌ Неверный формат команды!")
+    except Exception as e:
+        print(f"Непредвиденная ошибка: {e}")  # Отладка
+        await message.reply_text("❌ Произошла ошибка при покупке фермы")
+
+# Также можно добавить альтернативный обработчик с использованием Command вместо regex
+@app.on_message(filters.command(["buy"]) & filters.regex(r"_\d+"))
+async def handle_buy_command_alt(client, message):
+    await handle_buy_command(client, message)
+
+# Запуск бота
+if __name__ == "__main__":
+    print("Bot started!")
+    start_mining_processes()
+    app.run()
