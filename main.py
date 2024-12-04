@@ -58,6 +58,9 @@ async def start(client, message):
 @app.on_message(
     (filters.text & ~filters.command(["start", "menu", "game", "shop"])) | filters.regex(r"/buy_\d+")
 )
+@app.on_message(
+    (filters.text & ~filters.command(["start", "menu", "game", "shop"])) | filters.regex(r"/buy_\d+")
+)
 async def handle_message(client, message):
     user_id = message.from_user.id
     username = message.from_user.username or str(user_id)
@@ -82,7 +85,27 @@ async def handle_message(client, message):
     elif message.text == "🎮 Игры":
         game_keyboard = game.get_game_keyboard()
         await message.reply_text("🎮 Выберите действие:", reply_markup=game_keyboard)
+    elif message.text == "👤 Профиль":
+        # Отображение профиля пользователя
+        await message.reply_text("👤 Ваш профиль:\n\n*Имя пользователя:* {}\n*ID:* {}".format(
+            message.from_user.first_name,
+            message.from_user.id
+        ))
+    elif message.text == "📢 Информация":
+        # Предоставление информации о боте
+        await message.reply_text("📢 Информация:\n\nЭтот бот создан для демонстрации возможностей...")
+    elif message.text == "⚙️ Настройки":
+        # Предоставление настроек
+        settings_keyboard = ReplyKeyboardMarkup(
+            [
+                ["🔔 Уведомления", "🌐 Язык"],
+                ["◀️ Назад"]
+            ],
+            resize_keyboard=True
+        )
+        await message.reply_text("⚙️ Настройки:\n\nВыберите настройку, которую хотите изменить:", reply_markup=settings_keyboard)
     elif re.match(r"/buy_\d+", message.text):
+        # Ваш существующий код для обработки покупки фермы
         try:
             command = message.text.strip()
             print(f"Получена команда: {command}")
@@ -100,7 +123,15 @@ async def handle_message(client, message):
         except Exception as e:
             print(f"Непредвиденная ошибка: {e}")
             await message.reply_text("❌ Произошла ошибка при покупке фермы")
-
+    elif message.text == "◀️ Назад":
+        main_keyboard = ReplyKeyboardMarkup(
+            [
+                ["🎮 Игры", "👤 Профиль"],
+                ["📢 Информация", "⚙️ Настройки"]
+            ],
+            resize_keyboard=True
+        )
+        await message.reply_text("Вы вернулись в главное меню", reply_markup=main_keyboard)
 # Обработчик фотографий
 @app.on_message(filters.photo)
 async def handle_photo(client, message):
