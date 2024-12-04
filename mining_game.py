@@ -30,15 +30,42 @@ class MiningGame:
 
     def load_user_data(self, user_id):
         path = self.get_user_data_path(user_id)
+        default_data = {"coins": 100, "farms": {}}
+        
         if os.path.exists(path):
-            with open(path, 'r') as f:
-                return json.load(f)
-        return {"coins": 100, "farms": {}}
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                if self.validate_user_data(data):
+                    return data
+            except Exception as e:
+                print(f"Error loading user data for {user_id}: {e}")
+        return default_data
 
     def save_user_data(self, user_id, data):
         path = self.get_user_data_path(user_id)
-        with open(path, 'w') as f:
-            json.dump(data, f)
+        try:
+            # Создаем копию данных с отсортированными фермами
+            save_data = {
+                "coins": data.get("coins", 0),
+                "farms": {}
+            }
+            # Сортируем и копируем данные ферм
+            sorted_farm_ids = sorted(data.get("farms", {}).keys(), key=lambda x: int(x))
+            for farm_id in sorted_farm_ids:
+                farm_data = data["farms"][farm_id]
+                save_data["farms"][farm_id] = {
+                    "name": farm_data.get("name", ""),
+                    "rate": farm_data.get("rate", 0),
+                    "last_collection": farm_data.get("last_collection", datetime.now().timestamp())
+                }
+            
+            # Записываем данные в файл
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump(save_data, f, indent=4, ensure_ascii=False)
+                f.write('\n')
+        except Exception as e:
+            print(f"Error saving user data for {user_id}: {e}")
 
     def get_game_keyboard(self):
         keyboard = types.ReplyKeyboardMarkup(
@@ -113,7 +140,10 @@ class MiningGame:
             return "У вас пока нет ферм 😢"
 
         text = "⛏ Ваши фермы:\n\n"
-        for farm_id, farm_data in user_data["farms"].items():
+        # Сортируем ID ферм пользователя
+        sorted_farm_ids = sorted(user_data["farms"].keys(), key=lambda x: int(x))
+        for farm_id in sorted_farm_ids:
+            farm_data = user_data["farms"][farm_id]
             text += f"🔸 {farm_data['name']}\n"
             text += f"⚡️ Производительность: {farm_data['rate']} монет/сек\n\n"
         return text
@@ -129,22 +159,40 @@ class MiningGame:
             while True:
                 try:
                     user_data = self.load_user_data(u_id)
-                    farm_data = user_data["farms"][str(f_id)]
-                    current_time = datetime.now().timestamp()
-                    elapsed_time = current_time - farm_data["last_collection"]
+                    farm_id_str = str(f_id)
                     
-                    coins_earned = int(elapsed_time * farm_data["rate"])
+                    if "farms" not in user_data or farm_id_str not in user_data["farms"]:
+                        print(f"Farm {f_id} not found for user {u_id}")
+                        break
+                    
+                    farm_data = user_data["farms"][farm_id_str]
+                    current_time = datetime.now().timestamp()
+                    last_collection = farm_data.get("last_collection", current_time)
+                    rate = farm_data.get("rate", 0)
+                    
+                    elapsed_time = current_time - last_collection
+                    coins_earned = int(elapsed_time * rate)
+                    
                     if coins_earned > 0:
-                        user_data["coins"] += coins_earned
+                        user_data["coins"] = user_data.get("coins", 0) + coins_earned
                         farm_data["last_collection"] = current_time
                         self.save_user_data(u_id, user_data)
                     
                     time.sleep(1)
                 except Exception as e:
-                    print(f"Mining error for user {u_id}, farm {f_id}: {e}")
+                    print(f"Mining error for user {u_id}, farm {f_id}: {str(e)}")
                     break
 
         thread = threading.Thread(target=mining_process, args=(user_id, farm_id))
         thread.daemon = True
         thread.start()
         self.mining_threads[user_id][farm_id] = thread
+
+    def validate_user_data(self, data):
+        if not isinstance(data, dict):
+            return False
+        if "coins" not in data or not isinstance(data["coins"], (int, float)):
+            return False
+        if "farms" not in data or not isinstance(data["farms"], dict):
+            return False
+        return True
