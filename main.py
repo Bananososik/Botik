@@ -1,8 +1,58 @@
+# main.py
 from pyrogram import Client, filters
 from bot_token import bot_token, api_id, api_hash
 from logging_utils import save_message, save_media
+import os
 
 app = Client("my_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
+
+user_states = {}
+
+@app.on_message(filters.photo)
+async def handle_photo(client, message):
+    try:
+        username = message.from_user.username
+        if not os.path.exists("temp"):
+            os.makedirs("temp")
+            
+        file_path = f"temp/{message.photo.file_unique_id}.jpg"
+        
+        await message.download(file_name=file_path)
+        
+        with open(file_path, "rb") as photo_file:
+            photo_data = photo_file.read()
+            save_media(username, photo_data, "photo")
+        
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        
+        save_message(username, "📸 Фотография получена и сохранена")
+        
+    except Exception as e:
+        print(f"Ошибка при обработке фото: {str(e)}")
+
+@app.on_message(filters.sticker)
+async def handle_sticker(client, message):
+    try:
+        username = message.from_user.username
+        if not os.path.exists("temp"):
+            os.makedirs("temp")
+            
+        file_path = f"temp/{message.sticker.file_unique_id}.webp"
+        
+        await message.download(file_name=file_path)
+        
+        with open(file_path, "rb") as sticker_file:
+            sticker_data = sticker_file.read()
+            save_media(username, sticker_data, "sticker")
+        
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        
+        save_message(username, "🎯 Стикер получен и сохранен")
+        
+    except Exception as e:
+        print(f"Ошибка при обработке стикера: {str(e)}")
 
 user_states = {}
 
@@ -26,18 +76,6 @@ async def handle_message(client, message):
             save_message(username, "Вы даун!", is_bot=True)
         user_states[username] = None
 
-@app.on_message(filters.photo)
-async def handle_photo(client, message):
-    username = message.from_user.username
-    photo = await message.download()
-    with open(photo, 'rb') as f:
-        save_media(username, f.read(), 'photo')
-
-@app.on_message(filters.sticker)
-async def handle_sticker(client, message):
-    username = message.from_user.username
-    sticker = await message.download()
-    save_media(username, sticker, 'sticker')
-
+        
 print("Bot started!")
 app.run()
