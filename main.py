@@ -1,4 +1,4 @@
-from pyrogram import Client, filters
+from pyrogram import Client, filters, enums
 from pyrogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from bot_token import bot_token, api_id, api_hash
 from logging_utils import save_message, save_media
@@ -41,7 +41,7 @@ async def menu(client, message):
 async def start(client, message):
     main_keyboard = ReplyKeyboardMarkup([
         ["🎮 Игры", "👤 Профиль"],
-        ["📢 Информация", "⚙️ Настройки"]
+        ["/info", "⚙️ Настройки"]
     ], resize_keyboard=True)
 
     user_id = message.from_user.id
@@ -57,6 +57,38 @@ async def start(client, message):
         reply_markup=main_keyboard
     )
     save_message(user_id, username, "Бот запущен", is_bot=True)
+
+@app.on_message(filters.command("info"))
+async def info(client, message):
+    print("Info command received")
+    # Your info command implementation
+    info_text = (
+        "📢 **Информация о боте \"Daunenok_botik\"**\n\n"
+        "**Описание:**\n"
+        "Daunenok_botik - это многофункциональный бот для Telegram, разработанный для развлечения и взаимодействия с пользователями. "
+        "Он включает в себя возможности для игры в майнинг фермы, отслеживания баланса, просмотра профиля и многого другого.\n\n"
+        "**Последние обновления:**\n"
+        "- **v1.2.0** (2024-12-01):\n"
+        "  - Добавлена функция восстановления энергии каждые 30 секунд.\n"
+        "  - Исправлена ошибка с сохранением данных пользователей.\n"
+        "  - Добавлены новые уровни ферм (RTX 4070, RTX 4080, RTX 4090).\n"
+        "- **v1.1.0** (2024-11-15):\n"
+        "  - Улучшен интерфейс пользователя.\n"
+        "  - Оптимизирована работа с базой данных.\n"
+        "  - Добавлена команда для отображения профиля пользователя.\n\n"
+        "**Планы на будущее обновление:**\n"
+        "- **v1.3.0**:\n"
+        "  - Добавление новых игр и активности для пользователей.\n"
+        "  - Введение системы достижений и наград.\n"
+        "  - Улучшение системы уведомлений и напоминаний.\n"
+        "  - Интеграция с другими популярными сервисами.\n\n"
+        "**Контактная информация:**\n"
+        "- **Разработчик:** Bananososik\n"
+        "- **Email:** yaoru.ru.com.exe@gmail.com\n"
+        "- **GitHub:** [Bananososik/Daunenok_botik](https://github.com/Bananososik/Daunenok_botik)\n"
+    )
+    
+    await message.reply_text(info_text, parse_mode=enums.ParseMode.MARKDOWN)
 
 @app.on_message(
     (filters.text & ~filters.command(["menu", "game", "shop"])) | filters.regex(r"/buy_\d+")
@@ -85,7 +117,7 @@ async def handle_message(client, message):
         main_keyboard = ReplyKeyboardMarkup(
             [
                 ["🎮 Игры", "👤 Профиль"],
-                ["📢 Информация", "⚙️ Настройки"]
+                ["/info", "⚙️ Настройки"]
             ],
             resize_keyboard=True
         )
@@ -106,12 +138,12 @@ async def handle_message(client, message):
 
         # Отображение профиля пользователя
         await message.reply_text(
-            "👤 *Ваш профиль:*\n\n"
-            "*Имя пользователя:* `{username}`\n"
-            "*ID:* `{user_id}`\n"
-            "💰 *Монет:* `{coins}`\n"
-            "🏭 *Количество ферм:* `{farms}`\n"
-            "🏆 *Место в топе:* `{top_position}`"
+            "👤 **Ваш профиль:**\n\n"
+            "**Имя пользователя:** `{username}`\n"
+            "**ID:** `{user_id}`\n"
+            "💰 **Монет:** `{coins}`\n"
+            "🏭 **Количество ферм:** `{farms}`\n"
+            "🏆 **Место в топе:** `{top_position}`"
             .format(
                 username=message.from_user.first_name,
                 user_id=user_id,
@@ -120,9 +152,6 @@ async def handle_message(client, message):
                 top_position=top_position
             )
         )
-    elif message.text == "📢 Информация":
-        # Предоставление информации о боте
-        await message.reply_text("📢 Информация:\n\nЭтот бот создан для демонстрации возможностей...")
     elif message.text == "⚙️ Настройки":
         # Предоставление настроек
         settings_keyboard = ReplyKeyboardMarkup(
@@ -156,7 +185,7 @@ async def handle_message(client, message):
         main_keyboard = ReplyKeyboardMarkup(
             [
                 ["🎮 Игры", "👤 Профиль"],
-                ["📢 Информация", "⚙️ Настройки"]
+                ["/info", "⚙️ Настройки"]
             ],
             resize_keyboard=True
         )
@@ -259,6 +288,8 @@ def start_mining_processes():
                 continue
             except Exception as e:
                 print(f"Error starting mining for user {user_dir}: {e}")
+
+
 
 # Запуск бота
 if __name__ == "__main__":
