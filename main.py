@@ -77,6 +77,10 @@ async def handle_message(client, message):
         await message.reply_text(game.get_top_players())
     elif message.text == "🧑‍🏭 Работать":
         await message.reply_text(game.work(user_id))
+    elif message.text == "🔋 Энергия":
+        user_data = game.load_user_data(user_id)
+        current_energy = user_data.get("energy", 100)
+        await message.reply(f"🔋 Ваша энергия: {current_energy}/15")
     elif message.text == "◀️ На главную":
         main_keyboard = ReplyKeyboardMarkup(
             [
@@ -90,11 +94,32 @@ async def handle_message(client, message):
         game_keyboard = game.get_game_keyboard()
         await message.reply_text("🎮 Выберите действие:", reply_markup=game_keyboard)
     elif message.text == "👤 Профиль":
+        user_id = message.from_user.id
+        user_data = game.load_user_data(user_id)
+
+        # Получаем количество монет и ферм
+        coins = user_data.get("coins", 0)
+        farms_count = len(user_data.get("farms", {}))
+
+        # Получаем место в топе
+        top_position = game.get_user_position_in_top(user_id)
+
         # Отображение профиля пользователя
-        await message.reply_text("👤 Ваш профиль:\n\n*Имя пользователя:* {}\n*ID:* {}".format(
-            message.from_user.first_name,
-            message.from_user.id
-        ))
+        await message.reply_text(
+            "👤 *Ваш профиль:*\n\n"
+            "*Имя пользователя:* `{username}`\n"
+            "*ID:* `{user_id}`\n"
+            "💰 *Монет:* `{coins}`\n"
+            "🏭 *Количество ферм:* `{farms}`\n"
+            "🏆 *Место в топе:* `{top_position}`"
+            .format(
+                username=message.from_user.first_name,
+                user_id=user_id,
+                coins=coins,
+                farms=farms_count,
+                top_position=top_position
+            )
+        )
     elif message.text == "📢 Информация":
         # Предоставление информации о боте
         await message.reply_text("📢 Информация:\n\nЭтот бот создан для демонстрации возможностей...")

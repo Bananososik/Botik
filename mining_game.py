@@ -5,6 +5,7 @@ import os
 from datetime import datetime
 import threading
 import time
+from random import randint
 
 class MiningGame:
     def __init__(self):
@@ -21,7 +22,7 @@ class MiningGame:
             10: {"name": "RTX 4090 Ti", "price": 640000, "rate": 6400}
         }
         self.mining_threads = {}
-
+        self.start_energy_recovery() 
     def get_user_data_path(self, user_id, username=None):
         directory = os.path.join("Users", str(user_id))
         if not os.path.exists(directory):
@@ -38,6 +39,7 @@ class MiningGame:
         default_data = {
             "coins": 0,
             "farms": {},
+            "username":str(user_id),
             "energy": 15
         }
 
@@ -73,8 +75,10 @@ class MiningGame:
             # Сохраняем остальные данные пользователя
             save_data = {
                 "coins": data.get("coins", 0),
+                "username": data.get("username", str(user_id)),
+                "energy": data.get("energy", 15),
                 "farms": data.get("farms", {}),
-                energy: data.get("energy", 15)
+                
             }
             with open(path, 'w', encoding='utf-8') as f:
                 json.dump(save_data, f, indent=4, ensure_ascii=False)
@@ -85,7 +89,7 @@ class MiningGame:
         keyboard = types.ReplyKeyboardMarkup(
             [
                 ["🏪 Магазин", "💰 Баланс", "🧑‍🏭 Работать"],
-                ["⛏ Мои фермы", "🏆 Топ игроков"],
+                ["⛏ Мои фермы", "🏆 Топ игроков", "🔋 Энергия"],
                 ["◀️ На главную"]
             ],
             resize_keyboard=True
@@ -209,6 +213,8 @@ class MiningGame:
             return False
         if "farms" not in data or not isinstance(data["farms"], dict):
             return False
+        if "energy" not in data or not isinstance(data["energy"], (int, float)):
+            return False
         return True
 
     def get_top_players(self):
@@ -269,15 +275,64 @@ class MiningGame:
 
     def work(self, user_id):
         user_data = self.load_user_data(user_id)
-        user_data["coins"] += 10
-        self.save_user_data(user_id, user_data)
-        return "Вы сделали рабочий день и заработали 10 монет!"
-
-    def work_energy(self, user_id):
-        user_data = self.load_user_data(user_id)
         if user_data["energy"] <= 0:
             return "❌ У вас нет энергии для работы!"
+        coins = randint(1, 15)
+        user_data["coins"] += coins
         user_data["energy"] -= 1
-        user_data["coins"] += 10
         self.save_user_data(user_id, user_data)
-        return "Вы сделали рабочий день и заработали 10 монет!"
+        return f"Вы заработали {coins} монет!"
+
+    def start_energy_recovery(self):
+        def recover_energy():
+            while True:
+                try:
+                    # Проходим по всем пользователям
+                    if os.path.exists("Users"):
+                        for user_dir in os.listdir("Users"):
+                            user_id = int(user_dir)
+                            user_data = self.load_user_data(user_id)
+                            # Восстанавливаем энергию
+                            current_energy = user_data.get("energy", 15)
+                            user_data["energy"] = min(current_energy + 1, 15)  # Восстанавливаем 10 единиц энергии
+                            self.save_user_data(user_id, user_data)
+                    time.sleep(30)  # Ждем 30 секунд
+                except Exception as e:
+                    print(f"Error in energy recovery: {e}")
+                    time.sleep(30)
+
+        thread = threading.Thread(target=recover_energy)
+        thread.daemon = True
+        thread.start()
+
+    def get_user_position_in_top(self, user_id):
+        players_data = []
+        try:
+            if os.path.exists("Users"):
+                for user_dir in os.listdir("Users"):
+                    try:
+                        user_path = os.path.join("Users", user_dir, "data.json")
+                        if os.path.exists(user_path):
+                            with open(user_path, 'r', encoding='utf-8') as f:
+                                user_data = json.load(f)
+                            total_coins = user_data.get("coins", 0)
+                            players_data.append({
+                                "user_id": int(user_dir),
+                                "coins": total_coins
+                            })
+                    except Exception as e:
+                        print(f"Error loading data for user {user_dir}: {e}")
+                        continue
+
+            # Сортируем игроков по количеству монет в порядке убывания
+            players_data.sort(key=lambda x: x["coins"], reverse=True)
+
+            # Поиск позиции пользователя в списке
+            for position, player in enumerate(players_data, 1):
+                if player["user_id"] == user_id:
+                    return position
+            return "Не в топе"
+        except Exception as e:
+            print(f"Error getting user position in top: {e}")
+            return "Ошибка"
+            
