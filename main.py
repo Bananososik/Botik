@@ -85,7 +85,7 @@ async def info(client, message):
         "**Контактная информация:**\n"
         "- **Разработчик:** Bananososik\n"
         "- **Email:** yaoru.ru.com.exe@gmail.com\n"
-        "- **GitHub:** [Bananososik/Daunenok_botik](https://github.com/Bananososik/Daunenok_botik)\n"
+        "- **GitHub:** [Bananososik/Botik](https://github.com/Bananososik/Botik)\n"
     )
     
     await message.reply_text(info_text, parse_mode=enums.ParseMode.MARKDOWN)
