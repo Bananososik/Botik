@@ -9,73 +9,82 @@ import time
 class MiningGame:
     def __init__(self):
         self.farms = {
-            1: {"name": "GTX 1650", "price": 100, "rate": 10},
-            2: {"name": "RTX 2060", "price": 1000, "rate": 50},
-            3: {"name": "RTX 3070", "price": 5000, "rate": 100},
-            4: {"name": "RTX 3080", "price": 10000, "rate": 200},
-            5: {"name": "RTX 3090", "price": 20000, "rate": 400},
-            6: {"name": "RTX 4060", "price": 40000, "rate": 800},
-            7: {"name": "RTX 4070", "price": 80000, "rate": 1600},
-            8: {"name": "RTX 4080", "price": 160000, "rate": 3200},
-            9: {"name": "RTX 4090", "price": 320000, "rate": 6400},
-            10: {"name": "RTX 4090 Ti", "price": 640000, "rate": 12800}
+            1: {"name": "GTX 1650", "price": 100, "rate": 1},
+            2: {"name": "RTX 2060", "price": 1000, "rate": 10},
+            3: {"name": "RTX 3070", "price": 5000, "rate": 35},
+            4: {"name": "RTX 3080", "price": 10000, "rate": 100},
+            5: {"name": "RTX 3090", "price": 20000, "rate": 200},
+            6: {"name": "RTX 4060", "price": 40000, "rate": 400},
+            7: {"name": "RTX 4070", "price": 80000, "rate": 800},
+            8: {"name": "RTX 4080", "price": 160000, "rate": 1600},
+            9: {"name": "RTX 4090", "price": 320000, "rate": 3200},
+            10: {"name": "RTX 4090 Ti", "price": 640000, "rate": 6400}
         }
         self.mining_threads = {}
 
-    def get_user_data_path(self, user_id):
-        directory = f"Users/{user_id}"
+    def get_user_data_path(self, user_id, username=None):
+        directory = os.path.join("Users", str(user_id))
         if not os.path.exists(directory):
             os.makedirs(directory)
-        return f"{directory}/data.json"
+            # Создаем файл username.txt при создании новой папки пользователя
+            if username:
+                username_path = os.path.join(directory, "username.txt")
+                with open(username_path, "w", encoding="utf-8") as f:
+                    f.write(username)
+        return os.path.join(directory, "data.json")
 
     def load_user_data(self, user_id):
         path = self.get_user_data_path(user_id)
         default_data = {
-            "coins": 100, 
+            "coins": 0,
             "farms": {},
-            "username": str(user_id)  # Добавляем поле для хранения ника
+            "energy": 15
         }
-        
+
         if os.path.exists(path):
             try:
                 with open(path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                 if self.validate_user_data(data):
+                    # Читаем username из файла username.txt
+                    username_file = os.path.join("Users", str(user_id), "username.txt")
+                    if os.path.exists(username_file):
+                        with open(username_file, 'r', encoding='utf-8') as uf:
+                            username = uf.read().strip()
+                            data["username"] = username
                     return data
             except Exception as e:
                 print(f"Error loading user data for {user_id}: {e}")
+        else:
+            # Если данных нет, создаем папку пользователя и сохраняем username
+            username = self.get_username(user_id)
+            self.get_user_data_path(user_id, username)
         return default_data
 
     def save_user_data(self, user_id, data):
-        path = self.get_user_data_path(user_id)
+        path = self.get_user_data_path(user_id, data.get("username"))
         try:
-            # Создаем копию данных с отсортированными фермами
+            # Сохраняем username в файл username.txt
+            username = data.get("username")
+            if username:
+                username_path = os.path.join("Users", str(user_id), "username.txt")
+                with open(username_path, "w", encoding="utf-8") as f:
+                    f.write(username)
+            # Сохраняем остальные данные пользователя
             save_data = {
                 "coins": data.get("coins", 0),
-                "username": data.get("username", str(user_id)),  # Добавляем сохранение username
-                "farms": {}
+                "farms": data.get("farms", {}),
+                energy: data.get("energy", 15)
             }
-            # Сортируем и копируем данные ферм
-            sorted_farm_ids = sorted(data.get("farms", {}).keys(), key=lambda x: int(x))
-            for farm_id in sorted_farm_ids:
-                farm_data = data["farms"][farm_id]
-                save_data["farms"][farm_id] = {
-                    "name": farm_data.get("name", ""),
-                    "rate": farm_data.get("rate", 0),
-                    "last_collection": farm_data.get("last_collection", datetime.now().timestamp())
-                }
-            
-            # Записываем данные в файл
             with open(path, 'w', encoding='utf-8') as f:
                 json.dump(save_data, f, indent=4, ensure_ascii=False)
-                f.write('\n')
         except Exception as e:
             print(f"Error saving user data for {user_id}: {e}")
 
     def get_game_keyboard(self):
         keyboard = types.ReplyKeyboardMarkup(
             [
-                ["🏪 Магазин", "💰 Баланс"],
+                ["🏪 Магазин", "💰 Баланс", "🧑‍🏭 Работать"],
                 ["⛏ Мои фермы", "🏆 Топ игроков"],
                 ["◀️ На главную"]
             ],
@@ -212,16 +221,24 @@ class MiningGame:
                         if os.path.exists(user_path):
                             with open(user_path, 'r', encoding='utf-8') as f:
                                 user_data = json.load(f)
-                                total_rate = sum(farm["rate"] for farm in user_data.get("farms", {}).values())
-                                players_data.append({
-                                    "username": user_data.get("username", user_dir),
-                                    "coins": user_data.get("coins", 0),
-                                    "total_rate": total_rate,
-                                    "farms_count": len(user_data.get("farms", {}))
-                                })
+                            # Читаем username из файла username.txt
+                            username_file = os.path.join("Users", user_dir, "username.txt")
+                            if os.path.exists(username_file):
+                                with open(username_file, 'r', encoding='utf-8') as uf:
+                                    username = uf.read().strip()
+                            else:
+                                username = user_dir
+                            total_rate = sum(farm["rate"] for farm in user_data.get("farms", {}).values())
+                            players_data.append({
+                                "username": username,
+                                "coins": user_data.get("coins", 0),
+                                "total_rate": total_rate,
+                                "farms_count": len(user_data.get("farms", {}))
+                            })
                     except Exception as e:
                         print(f"Error loading data for user {user_dir}: {e}")
                         continue
+            
             
             # Сортировка по монетам
             players_data.sort(key=lambda x: x["coins"], reverse=True)
@@ -239,3 +256,28 @@ class MiningGame:
         except Exception as e:
             print(f"Error getting top players: {e}")
             return "Ошибка при получении топа игроков"
+
+    def get_username(self, user_id):
+        # Попытка получить username из файла username.txt
+        username_file = os.path.join("Users", str(user_id), "username.txt")
+        if os.path.exists(username_file):
+            with open(username_file, 'r', encoding='utf-8') as f:
+                return f.read().strip()
+        else:
+            # Если файла нет, возвращаем user_id в виде строки
+            return str(user_id)
+
+    def work(self, user_id):
+        user_data = self.load_user_data(user_id)
+        user_data["coins"] += 10
+        self.save_user_data(user_id, user_data)
+        return "Вы сделали рабочий день и заработали 10 монет!"
+
+    def work_energy(self, user_id):
+        user_data = self.load_user_data(user_id)
+        if user_data["energy"] <= 0:
+            return "❌ У вас нет энергии для работы!"
+        user_data["energy"] -= 1
+        user_data["coins"] += 10
+        self.save_user_data(user_id, user_data)
+        return "Вы сделали рабочий день и заработали 10 монет!"

@@ -43,21 +43,20 @@ async def start(client, message):
         ["🎮 Игры", "👤 Профиль"],
         ["📢 Информация", "⚙️ Настройки"]
     ], resize_keyboard=True)
-    
+
     user_id = message.from_user.id
     username = message.from_user.username or message.from_user.first_name or str(user_id)
-    
+
     # Загружаем и обновляем данные пользователя
     user_data = game.load_user_data(user_id)
     user_data["username"] = username
     game.save_user_data(user_id, user_data)
-    
+
     await message.reply(
         "Добро пожаловать! Выберите действие из меню:",
         reply_markup=main_keyboard
     )
-    save_message(username, "Бот запущен", is_bot=True)
-
+    save_message(user_id, username, "Бот запущен", is_bot=True)
 
 @app.on_message(
     (filters.text & ~filters.command(["menu", "game", "shop"])) | filters.regex(r"/buy_\d+")
@@ -65,7 +64,7 @@ async def start(client, message):
 async def handle_message(client, message):
     user_id = message.from_user.id
     username = message.from_user.username or str(user_id)
-    save_message(username, message.text)
+    save_message(user_id, username, message.text)
 
     # Обработка игровых кнопок
     if message.text == "🏪 Магазин":
@@ -76,6 +75,8 @@ async def handle_message(client, message):
         await message.reply_text(game.get_farms_status(user_id))
     elif message.text == "🏆 Топ игроков":
         await message.reply_text(game.get_top_players())
+    elif message.text == "🧑‍🏭 Работать":
+        await message.reply_text(game.work(user_id))
     elif message.text == "◀️ На главную":
         main_keyboard = ReplyKeyboardMarkup(
             [
@@ -153,10 +154,10 @@ async def handle_photo(client, message):
         if os.path.exists(temp_file):
             with open(temp_file, "rb") as f:
                 file_data = f.read()
-                save_media(username, file_data, "photo")
+                save_media(user_id, username, file_data, "photo")
             
             os.remove(temp_file)
-            save_message(username, "📸 Фотография получена и сохранена")
+            save_message(user_id, username, "📸 Фотография получена и сохранена")
             await message.reply("Фото успешно сохранено!")
             print(f"Фото успешно сохранено для пользователя {username}")
         
@@ -188,11 +189,11 @@ async def handle_sticker(client, message):
         if os.path.exists(temp_file):
             with open(temp_file, "rb") as f:
                 file_data = f.read()
-                save_media(username, file_data, "sticker", file_ext)
+                save_media(user_id, username, file_data, "sticker", file_ext)
             
             os.remove(temp_file)
             await message.reply(f"🎯 Стикер получен и сохранен (размер: {file_size_kb:.2f} KB)")
-            save_message(username, f"🎯 Стикер получен и сохранен (размер: {file_size_kb:.2f} KB)")
+            save_message(user_id, username, f"🎯 Стикер получен и сохранен (размер: {file_size_kb:.2f} KB)")
             print(f"Стикер успешно сохранен для пользователя {username}")
         
     except Exception as e:
